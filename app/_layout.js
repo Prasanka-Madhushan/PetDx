@@ -1,35 +1,57 @@
 import { Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { View, ActivityIndicator } from 'react-native';
+import { useEffect } from 'react';
 import { initDatabase, prepopulateBreeds, prepopulateDiseases } from '../utils/database';
 
-export default function Layout() {
-  const [isDbReady, setIsDbReady] = useState(false);
+function RootLayoutNav() {
+  const { loading } = useAuth();
 
-  useEffect(() => {
-    const setup = async () => {
-      await initDatabase();
-      await prepopulateBreeds();
-      await prepopulateDiseases();
-      setIsDbReady(true);
-    };
-    setup();
-  }, []);
-
-  if (!isDbReady) {
+  if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex:1, justifyContent:'center', alignItems:'center' }}>
         <ActivityIndicator size="large" color="#6B4EFF" />
       </View>
     );
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="result" options={{ presentation: 'modal', title: 'Scan Result' }} />
-      <Stack.Screen name="breed-details" options={{ title: 'Breed Details' }} />
-      <Stack.Screen name="disease-details" options={{ title: 'Disease Details' }} />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="auth/login" />
+      <Stack.Screen name="auth/signup" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="result" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="breed-details" />
+      <Stack.Screen name="disease-details" />
     </Stack>
+  );
+}
+
+function AppInitializer({ children }) {
+  useEffect(() => {
+    const setup = async () => {
+      try {
+        await initDatabase();
+        await prepopulateBreeds();
+        await prepopulateDiseases();
+      } catch (error) {
+        console.error('Database setup failed:', error);
+      }
+    };
+
+    setup();
+  }, []);
+
+  return children;
+}
+
+export default function Layout() {
+  return (
+    <AuthProvider>
+      <AppInitializer>
+        <RootLayoutNav />
+      </AppInitializer>
+    </AuthProvider>
   );
 }

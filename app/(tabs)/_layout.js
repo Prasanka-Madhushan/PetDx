@@ -1,17 +1,26 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
 
 export default function TabsLayout() {
-  const colorScheme = useColorScheme();
-  const tintColor = '#6B4EFF'; // modern purple – you can change this
+  const tintColor = '#6B4EFF';
 
   return (
     <Tabs screenOptions={{ tabBarActiveTintColor: tintColor }}>
       <Tabs.Screen
-        name="index"
+        name="home"
+        options={{
+          title: 'Home',
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="scan"
         options={{
           title: 'Scan',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="camera-outline" size={size} color={color} />
           ),
@@ -21,24 +30,38 @@ export default function TabsLayout() {
         name="history"
         options={{
           title: 'History',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="vet"
+        name="profile"
         options={{
-          title: 'Vet Locator',
+          title: 'Profile',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
+            <Ionicons name="person-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
+        name="vet"
+        options={{
+           headerShown: false,  
+             href: null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="medkit-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="info"
         options={{
-          title: 'Pet Info',
+           headerShown: false,  
+             href: null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="information-circle-outline" size={size} color={color} />
           ),

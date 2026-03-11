@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -23,7 +23,7 @@ export default function ScanScreen() {
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      alert('Camera permission is required!');
+      Alert.alert('Permission required', 'Camera permission is needed to take photos.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -37,17 +37,20 @@ export default function ScanScreen() {
 
   const analyzeImage = () => {
     if (!image) {
-      alert('Please select an image first.');
+      Alert.alert('No Image', 'Please select an image first.');
       return;
     }
-    // Navigate to result screen, passing image URI
     router.push({ pathname: '/result', params: { imageUri: image } });
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>PetDx</Text>
-      <Text style={styles.subtitle}>Identify breed & disease</Text>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Ionicons name="arrow-back" size={24} color="#6B4EFF" />
+      </TouchableOpacity>
+
+      <Text style={styles.title}>PetDx Scan</Text>
+      <Text style={styles.subtitle}>Take or choose a photo of your pet</Text>
 
       <View style={styles.imageContainer}>
         {image ? (
@@ -86,8 +89,14 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#F5F7FA',
   },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+  },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#6B4EFF',
     marginBottom: 5,
@@ -96,6 +105,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
     marginBottom: 30,
+    textAlign: 'center',
   },
   imageContainer: {
     width: 250,
