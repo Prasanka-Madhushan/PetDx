@@ -35,11 +35,14 @@ const dailyTips = [
   "Microchipping increases the chance of reuniting with a lost pet."
 ];
 
-// Mock featured pets (replace with real data later)
+// Mock featured pets
 const featuredPets = [
   { id: 1, name: 'Luna', breed: 'Siamese', image: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400' },
   { id: 2, name: 'Max', breed: 'Golden Retriever', image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400' },
   { id: 3, name: 'Bella', breed: 'Persian', image: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=400' },
+  { id: 4, name: 'Anton', breed: 'Siamese', image: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400' },
+  { id: 5, name: 'Red', breed: 'Golden Retriever', image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400' },
+  { id: 6, name: 'John', breed: 'Persian', image: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=400' },
 ];
 
 export default function HomeScreen() {
