@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    // "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,7 +15,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.petdx",
       "config": {
-        "googleMapsApiKey": "YOUR_IOS_KEY"   // ← note the flat string
+        "googleMapsApiKey": "YOUR_IOS_KEY"
       }
     },
     "android": {
@@ -26,17 +25,17 @@
       },
       "config": {
         "googleMaps": {
-          "apiKey": "YOUR_ANDROID_KEY"       // this object is valid here
+          "apiKey": "AIzaSyDKo47VQpTFtD9jXhJH7V8p_7FrcXbJtTs"
         }
       }
-      // "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro"
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-mail-composer"
     ],
     "scheme": "petdx",
     "experiments": {

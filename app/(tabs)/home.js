@@ -18,19 +18,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { getAllScans, initDatabase } from '../../utils/database';
+import ChatbotModal from '../../components/Chatbotmodal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH         = width * 0.7;
 const STATUS_BAR_HEIGHT  = Platform.OS === 'ios' ? 50 : StatusBar.currentHeight ?? 24;
+const TAB_BAR_HEIGHT = 66;
 
-// The tall hero banner that parallaxes behind the fixed header
 const HERO_HEIGHT        = 260;
-// Height of the fully-expanded fixed header
 const HEADER_EXPANDED_H  = 120 + STATUS_BAR_HEIGHT;
-// Height of the collapsed (compact) fixed header
 const HEADER_COLLAPSED_H = 60  + STATUS_BAR_HEIGHT;
-// Scroll distance that drives the collapse
 const COLLAPSE_SCROLL    = HERO_HEIGHT - HEADER_COLLAPSED_H;
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -48,43 +48,41 @@ const dailyTips = [
 ];
 
 const featuredPets = [
-  { id: 1, name: 'Luna',  breed: 'Siamese',          image: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400' },
-  { id: 2, name: 'Max',   breed: 'Golden Retriever',  image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400' },
-  { id: 3, name: 'Bella', breed: 'Persian',           image: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=400' },
-  { id: 4, name: 'Anton', breed: 'Siamese',           image: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400' },
-  { id: 5, name: 'Red',   breed: 'Golden Retriever',  image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400' },
-  { id: 6, name: 'John',  breed: 'Persian',           image: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=400' },
+  { id: 1, name: 'Luna',  breed: 'Siamese',         image: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400' },
+  { id: 2, name: 'Max',   breed: 'Golden Retriever', image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400' },
+  { id: 3, name: 'Bella', breed: 'Persian',          image: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=400' },
+  { id: 4, name: 'Anton', breed: 'Siamese',          image: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=400' },
+  { id: 5, name: 'Red',   breed: 'Golden Retriever', image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400' },
+ 
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const { user }  = useAuth();
   const router    = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [recentScans, setRecentScans] = useState([]);
   const [refreshing,  setRefreshing]  = useState(false);
-  const [stats,       setStats]       = useState({ totalScans: 0, uniqueBreeds: 0, commonDisease: 'N/A' });
+  const [stats,       setStats]       = useState({ totalScans: 0, uniqueBreeds: 0, diseaseCounts: {} });
   const [dailyTip,    setDailyTip]    = useState('');
+  const [shuffledPets, setShuffledPets] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef(null);
 
   // ── Stat counter animations ──────────────────────────────────────────────
   const animatedTotalScans   = useRef(new Animated.Value(0)).current;
   const animatedUniqueBreeds = useRef(new Animated.Value(0)).current;
   const [displayTotal,  setDisplayTotal]  = useState(0);
   const [displayUnique, setDisplayUnique] = useState(0);
-
-  // ── Single scroll-driven Animated.Value ─────────────────────────────────
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // ── All interpolations are pure – zero JS-thread listeners needed ────────
-
-  // Hero image moves up at 0.45× scroll speed  →  parallax
   const heroTranslateY = scrollY.interpolate({
     inputRange:  [0, HERO_HEIGHT],
     outputRange: [0, -HERO_HEIGHT * 0.45],
     extrapolate: 'clamp',
   });
 
-  // Glow orbs drift at different rates for a depth-of-field feel
   const orb1TranslateY = scrollY.interpolate({
     inputRange:  [0, height],
     outputRange: [0, -60],
@@ -101,21 +99,18 @@ export default function HomeScreen() {
     extrapolate: 'clamp',
   });
 
-  // Header height shrinks from EXPANDED → COLLAPSED as user scrolls
   const headerHeight = scrollY.interpolate({
     inputRange:  [0, COLLAPSE_SCROLL],
     outputRange: [HEADER_EXPANDED_H, HEADER_COLLAPSED_H],
     extrapolate: 'clamp',
   });
 
-  // Overlay fades in, giving the impression of a deeper blur
   const headerOverlayOpacity = scrollY.interpolate({
     inputRange:  [0, COLLAPSE_SCROLL],
     outputRange: [0, 0.65],
     extrapolate: 'clamp',
   });
 
-  // Subtitle fades out and slides up early in the scroll
   const subtitleOpacity = scrollY.interpolate({
     inputRange:  [0, COLLAPSE_SCROLL * 0.5],
     outputRange: [1, 0],
@@ -127,7 +122,6 @@ export default function HomeScreen() {
     extrapolate: 'clamp',
   });
 
-  // Username font-size shrinks from 26 → 18
   const userNameFontSize = scrollY.interpolate({
     inputRange:  [0, COLLAPSE_SCROLL],
     outputRange: [26, 18],
@@ -155,31 +149,60 @@ export default function HomeScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    const shuffled = [...featuredPets].sort(() => Math.random() - 0.5);
+    setShuffledPets(shuffled);
+  }, []);
+
+  useEffect(() => {
+  if (shuffledPets.length === 0) return;
+
+  const interval = setInterval(() => {
+    const nextIndex = (currentIndex + 1) % shuffledPets.length;
+    flatListRef.current?.scrollToIndex({
+      index: nextIndex,
+      animated: true,
+    });
+    setCurrentIndex(nextIndex);
+  }, 3000);
+
+  return () => clearInterval(interval);
+}, [currentIndex, shuffledPets]);
+
   // ── Data helpers ──────────────────────────────────────────────────────────
-  const loadRecentScans = async () => {
-    try {
-      const scans        = await getAllScans();
-      const total        = scans.length;
-      const uniqueBreeds = new Set(scans.map(s => s.breed)).size;
-      const common       = getMostCommonDisease(scans);
-      setRecentScans(scans.slice(0, 10));
-      setStats({ totalScans: total, uniqueBreeds, commonDisease: common });
-      animateStats(total, uniqueBreeds);
-    } catch (e) { console.error('Load error:', e); }
-  };
+const loadRecentScans = async () => {
+  try {
+    const scans = await getAllScans();
+    const total = scans.length;
+    const uniqueBreeds = new Set(scans.map(s => s.breed)).size;
+    const diseaseCounts = getDiseaseCounts(scans);
+    
+    setRecentScans(scans.slice(0, 10));
+    setStats({ 
+      totalScans: total, 
+      uniqueBreeds, 
+      diseaseCounts 
+    });
+    animateStats(total, uniqueBreeds);
+  } catch (e) { console.error('Load error:', e); }
+};
+
+// Helper function to count diseases
+const getDiseaseCounts = (scans) => {
+  const counts = {};
+  scans.forEach(scan => {
+    if (scan.disease) {
+      counts[scan.disease] = (counts[scan.disease] || 0) + 1;
+    }
+  });
+  return counts;
+};
 
   const animateStats = (total, unique) => {
     Animated.parallel([
       Animated.timing(animatedTotalScans,   { toValue: total,  duration: 1500, useNativeDriver: false }),
       Animated.timing(animatedUniqueBreeds, { toValue: unique, duration: 1500, useNativeDriver: false }),
     ]).start();
-  };
-
-  const getMostCommonDisease = (scans) => {
-    if (!scans.length) return 'N/A';
-    const counts     = scans.reduce((acc, s) => { acc[s.disease] = (acc[s.disease] || 0) + 1; return acc; }, {});
-    const mostCommon = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    return mostCommon ? mostCommon[0] : 'N/A';
   };
 
   const refreshTip = () => setDailyTip(dailyTips[Math.floor(Math.random() * dailyTips.length)]);
@@ -192,37 +215,23 @@ export default function HomeScreen() {
   };
 
   // ── Card definitions ──────────────────────────────────────────────────────
-  const statCards = [
-    { value: displayTotal.toString(),  label: 'Total Scans',  colors: ['#FF6B4E', '#FF9F7B'] },
-    { value: displayUnique.toString(), label: 'Breeds Found', colors: ['#3DBE6E', '#7DDFA0'] },
-    {
-      value: stats.commonDisease.length > 10 ? stats.commonDisease.substring(0, 8) + '..' : stats.commonDisease,
-      label: 'Common Issue',
-      colors: ['#FFB800', '#FFD966'],
-    },
-  ];
+const statCards = [
+  { value: displayTotal.toString(), label: 'Total Scans', colors: ['#FF6B4E', '#FF9F7B'] },
+  { value: displayUnique.toString(), label: 'Breeds Found', colors: ['#3DBE6E', '#7DDFA0'] },
+  {
+    value: Object.keys(stats.diseaseCounts).length.toString(),
+    label: 'Disease Types',
+    colors: ['#FFB800', '#FFD966'],
+  },
+];
 
   const quickActions = [
-    { label: 'New Scan', icon: 'camera',       colors: ['#7B5FFF', '#A98BFF'], onPress: () => router.push('/(tabs)/scan')    },
-    { label: 'Find Vet', icon: 'map',           colors: ['#FF6B4E', '#FF9F7B'], onPress: () => router.push('/(tabs)/vet')     },
-    { label: 'Pet Info', icon: 'information',   colors: ['#3DBE6E', '#7DDFA0'], onPress: () => router.push('/(tabs)/info')    },
-    { label: 'History',  icon: 'time',          colors: ['#FFB800', '#FFD966'], onPress: () => router.push('/(tabs)/history') },
+    { label: 'New Scan', icon: 'camera',      colors: ['#7B5FFF', '#A98BFF'], onPress: () => router.push('/(tabs)/scan')    },
+    { label: 'Find Vet', icon: 'map',          colors: ['#FF6B4E', '#FF9F7B'], onPress: () => router.push('/(tabs)/vet')     },
+    { label: 'Pet Info', icon: 'information',  colors: ['#3DBE6E', '#7DDFA0'], onPress: () => router.push('/(tabs)/info')    },
+    { label: 'History',  icon: 'time',         colors: ['#FFB800', '#FFD966'], onPress: () => router.push('/(tabs)/history') },
   ];
 
-  // ── Renderers ─────────────────────────────────────────────────────────────
-  const renderScanItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.scanCard}
-      onPress={() => router.push({ pathname: '/result', params: { imageUri: item.imageUri, fromHistory: true, scanId: item.id } })}
-    >
-      <Image source={{ uri: item.imageUri }} style={styles.scanCardImage} />
-      <BlurView intensity={40} tint="dark" style={styles.scanCardGlassOverlay}>
-        <Text style={styles.scanCardBreed}   numberOfLines={1}>{item.breed}</Text>
-        <Text style={styles.scanCardDisease} numberOfLines={1}>{item.disease}</Text>
-        <Text style={styles.scanCardDate}>{new Date(item.timestamp).toLocaleDateString()}</Text>
-      </BlurView>
-    </TouchableOpacity>
-  );
 
   const renderFeaturedItem = ({ item }) => (
     <View style={styles.featuredCard}>
@@ -234,12 +243,10 @@ export default function HomeScreen() {
     </View>
   );
 
-  // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <View style={styles.rootContainer}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* ══ FULL-SCREEN GRADIENT BACKGROUND ══════════════════════════════════ */}
       <LinearGradient
         colors={['#0D0B2A', '#1A1040', '#0D1F3C']}
         start={{ x: 0.1, y: 0 }}
@@ -247,20 +254,18 @@ export default function HomeScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* ══ PARALLAX GLOW ORBS ═══════════════════════════════════════════════ */}
       <Animated.View style={[styles.glowOrb, styles.glowOrb1, { transform: [{ translateY: orb1TranslateY }] }]} />
       <Animated.View style={[styles.glowOrb, styles.glowOrb2, { transform: [{ translateY: orb2TranslateY }] }]} />
       <Animated.View style={[styles.glowOrb, styles.glowOrb3, { transform: [{ translateY: orb3TranslateY }] }]} />
 
-      {/* ══ SCROLLABLE CONTENT ═══════════════════════════════════════════════ */}
       <Animated.ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }    
+          { useNativeDriver: false }
         )}
-        scrollEventThrottle={16}        
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -269,24 +274,25 @@ export default function HomeScreen() {
             progressViewOffset={HEADER_EXPANDED_H}
           />
         }
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 20 }
+        ]}
       >
-        {/* ── PARALLAX HERO BANNER ─────────────────────────────────────────
-            Sits at scroll position 0. The fixed header floats above it.
-            The image is taller than HERO_HEIGHT so parallax never shows a gap. */}
+
         <View style={styles.heroContainer}>
           <Animated.Image
             source={{ uri: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=800' }}
             style={[styles.heroImage, { transform: [{ translateY: heroTranslateY }] }]}
             resizeMode="cover"
           />
-          {/* Gradient overlay so the transition to page background is seamless */}
           <LinearGradient
             colors={['rgba(13,11,42,0)', 'rgba(13,11,42,0.45)', '#0D0B2A']}
             style={styles.heroGradient}
           />
         </View>
 
-        {/* ══ STATS (overlap the hero bottom) ══════════════════════════════ */}
+        {/* ══ STATS ════════════════════════════════════════════════════════ */}
         <View style={styles.statsContainer}>
           {statCards.map((card, i) => (
             <View key={i} style={styles.statCardWrapper}>
@@ -317,44 +323,7 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* ══ RECENT SCANS ═════════════════════════════════════════════════ */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Scans</Text>
-            {recentScans.length > 0 && (
-              <TouchableOpacity onPress={() => router.push('/(tabs)/history')}>
-                <Text style={styles.viewAll}>See All</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {recentScans.length === 0 ? (
-            <BlurView intensity={40} tint="dark" style={styles.emptyContainer}>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']}
-                style={StyleSheet.absoluteFill}
-              />
-              <Ionicons name="images-outline" size={48} color="rgba(255,255,255,0.3)" />
-              <Text style={styles.emptyText}>No scans yet</Text>
-              <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/(tabs)/scan')}>
-                <LinearGradient colors={['#7B5FFF', '#A98BFF']} style={styles.emptyButtonGradient}>
-                  <Text style={styles.emptyButtonText}>Start Scanning</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </BlurView>
-          ) : (
-            <FlatList
-              data={recentScans}
-              renderItem={renderScanItem}
-              keyExtractor={item => item.id.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.carouselContent}
-              snapToInterval={CARD_WIDTH + 15}
-              decelerationRate="fast"
-            />
-          )}
-        </View>
+        
 
         {/* ══ DAILY TIP ════════════════════════════════════════════════════ */}
         <BlurView intensity={40} tint="dark" style={styles.tipContainer}>
@@ -373,39 +342,38 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </BlurView>
 
-        {/* ══ FEATURED PETS ════════════════════════════════════════════════ */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured Pets</Text>
+        {/* ══ FEATURED PETS ═══════════════════════════════════════ */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Featured Pets</Text>
+            </View>
+            {shuffledPets.length > 0 && (
+              <FlatList
+                ref={flatListRef}
+                data={shuffledPets}
+                renderItem={renderFeaturedItem}
+                keyExtractor={item => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.featuredCarousel}
+                onScrollToIndexFailed={info => {
+                  const wait = new Promise(resolve => setTimeout(resolve, 500));
+                  wait.then(() => {
+                    flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+                  });
+                }}
+              />
+            )}
           </View>
-          <FlatList
-            data={featuredPets}
-            renderItem={renderFeaturedItem}
-            keyExtractor={item => item.id.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.featuredCarousel}
-          />
-        </View>
-
-        <View style={{ height: 40 }} />
       </Animated.ScrollView>
 
-      {/* ══ FIXED GLASS HEADER ═══════════════════════════════════════════════
-          Lives OUTSIDE the ScrollView so it never scrolls away.
-          Its height, blur intensity overlay, and text all animate via scrollY. */}
+      {/* ══ FIXED GLASS HEADER ═══════════════════════════════════════════════ */}
       <Animated.View style={[styles.fixedHeader, { height: headerHeight }]} pointerEvents="box-none">
-
-        {/* Layer 1 – always-on BlurView base */}
         <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
-
-        {/* Layer 2 – solid dark overlay that deepens as user scrolls */}
         <Animated.View
           style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(13,11,42,1)', opacity: headerOverlayOpacity }]}
           pointerEvents="none"
         />
-
-        {/* Layer 3 – purple gradient tint */}
         <LinearGradient
           colors={['rgba(123,95,255,0.40)', 'rgba(123,95,255,0.08)']}
           start={{ x: 0, y: 0 }}
@@ -413,24 +381,20 @@ export default function HomeScreen() {
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
-
-        {/* Glass bottom border */}
         <View style={styles.headerBottomBorder} pointerEvents="none" />
 
-        {/* ── Actual header content ── */}
         <View style={[styles.headerInner, { paddingTop: STATUS_BAR_HEIGHT }]}>
           <View style={styles.headerRow}>
             <View style={styles.headerTextGroup}>
               <Animated.Text
-            style={[
-              styles.greeting,
-              { opacity: subtitleOpacity, transform: [{ translateY: subtitleTranslateY }] },
-            ]}
-            pointerEvents="none"
-          >
-            Hello
-          </Animated.Text>
-              {/* Font shrinks from 26 → 18 as header collapses */}
+                style={[
+                  styles.greeting,
+                  { opacity: subtitleOpacity, transform: [{ translateY: subtitleTranslateY }] },
+                ]}
+                pointerEvents="none"
+              >
+                Hello
+              </Animated.Text>
               <Animated.Text style={[styles.userName, { fontSize: userNameFontSize }]}>
                 {user?.email?.split('@')[0] || 'Pet Lover'}
               </Animated.Text>
@@ -446,7 +410,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Subtitle fades out and slides up as user scrolls */}
           <Animated.Text
             style={[
               styles.headerSubtitle,
@@ -459,16 +422,13 @@ export default function HomeScreen() {
         </View>
       </Animated.View>
 
+      <ChatbotModal />
     </View>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
 
-  // ── Root ─────────────────────────────────────────────────────────────────
   rootContainer: {
     flex: 1,
     backgroundColor: '#0D0B2A',
@@ -476,8 +436,10 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
 
-  // ── Glow orbs ─────────────────────────────────────────────────────────────
   glowOrb: {
     position:     'absolute',
     borderRadius: 999,
@@ -502,14 +464,12 @@ const styles = StyleSheet.create({
     shadowColor: '#00C2FF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 75,
   },
 
-  // ── Parallax hero ─────────────────────────────────────────────────────────
   heroContainer: {
     height:   HERO_HEIGHT,
     overflow: 'hidden',
   },
   heroImage: {
     width:    '100%',
-    // Taller than container so translateY never reveals an empty gap
     height:   HERO_HEIGHT + HERO_HEIGHT * 0.45,
     position: 'absolute',
     top:      0,
@@ -518,11 +478,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
   statsContainer: {
     flexDirection:    'row',
     justifyContent:   'space-between',
-    marginTop:        -28,   // overlap bottom of hero banner
+    marginTop:        -28,
     marginHorizontal: 18,
     marginBottom:     26,
     zIndex:           1,
@@ -549,25 +508,24 @@ const styles = StyleSheet.create({
     borderColor:       'rgba(255,255,255,0.18)',
   },
   statNumber: {
-    fontSize:     22,
-    fontWeight:   '800',
-    color:        '#FFFFFF',
+    fontSize:      22,
+    fontWeight:    '800',
+    color:         '#FFFFFF',
     letterSpacing: 0.5,
   },
   statLabel: {
-    fontSize:     11,
-    color:        'rgba(255,255,255,0.70)',
-    marginTop:    4,
-    textAlign:    'center',
+    fontSize:      11,
+    color:         'rgba(255,255,255,0.70)',
+    marginTop:     4,
+    textAlign:     'center',
     letterSpacing: 0.3,
   },
 
-  // ── Quick actions ──────────────────────────────────────────────────────────
   quickActionsContainer: {
-    flexDirection:    'row',
-    justifyContent:   'space-around',
+    flexDirection:     'row',
+    justifyContent:    'space-around',
     paddingHorizontal: 12,
-    marginBottom:     26,
+    marginBottom:      26,
   },
   quickAction: {
     alignItems: 'center',
@@ -586,32 +544,32 @@ const styles = StyleSheet.create({
     borderColor:   'rgba(255,255,255,0.20)',
   },
   quickActionGradient: {
-    width: 52, height: 52,
+    width:          52,
+    height:         52,
     justifyContent: 'center',
     alignItems:     'center',
   },
   quickActionText: {
-    fontSize:     11,
-    color:        'rgba(255,255,255,0.75)',
-    textAlign:    'center',
+    fontSize:      11,
+    color:         'rgba(255,255,255,0.75)',
+    textAlign:     'center',
     letterSpacing: 0.2,
   },
 
-  // ── Sections ──────────────────────────────────────────────────────────────
   sectionContainer: {
     marginBottom: 26,
   },
   sectionHeader: {
-    flexDirection:    'row',
-    justifyContent:   'space-between',
-    alignItems:       'center',
+    flexDirection:     'row',
+    justifyContent:    'space-between',
+    alignItems:        'center',
     paddingHorizontal: 20,
-    marginBottom:     12,
+    marginBottom:      12,
   },
   sectionTitle: {
-    fontSize:     18,
-    fontWeight:   '700',
-    color:        '#FFFFFF',
+    fontSize:      18,
+    fontWeight:    '700',
+    color:         '#FFFFFF',
     letterSpacing: 0.3,
   },
   viewAll: {
@@ -620,7 +578,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ── Scan cards ────────────────────────────────────────────────────────────
+
   carouselContent: { paddingHorizontal: 20 },
   scanCard: {
     width:         CARD_WIDTH,
@@ -640,7 +598,7 @@ const styles = StyleSheet.create({
     width: '100%', height: '100%', resizeMode: 'cover',
   },
   scanCardGlassOverlay: {
-    position: 'absolute',
+    position:          'absolute',
     bottom: 0, left: 0, right: 0,
     paddingVertical:   12,
     paddingHorizontal: 13,
@@ -648,11 +606,11 @@ const styles = StyleSheet.create({
     borderTopWidth:    1,
     borderTopColor:    'rgba(255,255,255,0.15)',
   },
-  scanCardBreed:   { color: '#fff',                    fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
-  scanCardDisease: { color: 'rgba(255,255,255,0.85)',   fontSize: 13, marginTop: 1 },
-  scanCardDate:    { color: 'rgba(255,255,255,0.55)',   fontSize: 11, marginTop: 4 },
+  scanCardBreed:   { color: '#fff',                   fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
+  scanCardDisease: { color: 'rgba(255,255,255,0.85)',  fontSize: 13, marginTop: 1 },
+  scanCardDate:    { color: 'rgba(255,255,255,0.55)',  fontSize: 11, marginTop: 4 },
 
-  // ── Empty state ───────────────────────────────────────────────────────────
+
   emptyContainer: {
     alignItems:       'center',
     paddingVertical:  32,
@@ -727,17 +685,17 @@ const styles = StyleSheet.create({
     borderTopWidth:    1,
     borderTopColor:    'rgba(255,255,255,0.15)',
   },
-  featuredName:  { color: '#fff',                  fontSize: 13, fontWeight: '700', letterSpacing: 0.2 },
+  featuredName:  { color: '#fff',                   fontSize: 13, fontWeight: '700', letterSpacing: 0.2 },
   featuredBreed: { color: 'rgba(255,255,255,0.80)', fontSize: 11, marginTop: 2 },
 
-  // ══ FIXED GLASS HEADER ════════════════════════════════════════════════════
+  // ── Fixed glass header ────────────────────────────────────────────────────
   fixedHeader: {
-    position:  'absolute',
-    top:       0,
-    left:      0,
-    right:     0,
-    zIndex:    100,
-    overflow:  'hidden',
+    position: 'absolute',
+    top:      0,
+    left:     0,
+    right:    0,
+    zIndex:   100,
+    overflow: 'hidden',
   },
   headerBottomBorder: {
     position:        'absolute',
@@ -758,19 +716,18 @@ const styles = StyleSheet.create({
   },
   headerTextGroup: { flex: 1 },
   greeting: {
-    fontSize:     13,
-    color:        'rgba(255,255,255,0.60)',
+    fontSize:      13,
+    color:         'rgba(255,255,255,0.60)',
     letterSpacing: 0.5,
   },
   userName: {
-    // fontSize animated externally via Animated.Text
     fontWeight:    '700',
     color:         '#FFFFFF',
     marginTop:     2,
     letterSpacing: 0.3,
   },
   avatarWrapper: {
-    top:            20,
+    top:           20,
     borderRadius:  28,
     overflow:      'hidden',
     borderWidth:   1.5,
@@ -782,14 +739,15 @@ const styles = StyleSheet.create({
     elevation:     8,
   },
   avatar: {
-    width: 52, height: 52,
+    width:          52,
+    height:         52,
     justifyContent: 'center',
     alignItems:     'center',
   },
   headerSubtitle: {
-    fontSize:     13,
-    color:        'rgba(255,255,255,0.55)',
-    marginTop:    5,
+    fontSize:      13,
+    color:         'rgba(255,255,255,0.55)',
+    marginTop:     5,
     letterSpacing: 0.2,
   },
 });

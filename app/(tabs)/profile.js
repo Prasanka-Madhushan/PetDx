@@ -25,14 +25,12 @@ const HEADER_EXPANDED_H  = 110 + STATUS_BAR_HEIGHT;
 const HEADER_COLLAPSED_H = 54  + STATUS_BAR_HEIGHT;
 const COLLAPSE_SCROLL    = HERO_HEIGHT - HEADER_COLLAPSED_H - 20;
 
-// ─── Menu data ────────────────────────────────────────────────────────────────
-// Each item carries its own accent colour for the icon glow
+
 const MENU_SECTIONS = [
   {
     title: 'My Content',
     items: [
       { icon: 'information-circle-outline', label: 'Pet Info Library',  accent: ['#7B5FFF', '#A98BFF'], route: '/(tabs)/info'    },
-      { icon: 'bookmark-outline',            label: 'Saved Pets',        accent: ['#FF6B4E', '#FF9F7B'], route: null              },
       { icon: 'time-outline',                label: 'Scan History',      accent: ['#3DBE6E', '#7DDFA0'], route: '/(tabs)/history' },
     ],
   },
@@ -40,19 +38,23 @@ const MENU_SECTIONS = [
     title: 'Discover',
     items: [
       { icon: 'map-outline',                 label: 'Vet Locator',       accent: ['#00C2FF', '#60D6FF'], route: '/(tabs)/vet'  },
-      { icon: 'paw-outline',                 label: 'Breed Finder',      accent: ['#FFB800', '#FFD966'], route: null           },
+      { icon: 'paw-outline',                 label: 'Breed Finder',      accent: ['#FFB800', '#FFD966'], route: '/(tabs)/breed_scan'
+        
+                },
+      { icon: 'paw-outline',                 label: 'Disease Finder',      accent: ['#FFB800', '#FFD966'], route: '/(tabs)/disease_scan'
+        
+                },
     ],
   },
   {
     title: 'Preferences',
     items: [
-      { icon: 'settings-outline',            label: 'Settings',          accent: ['#8B6EFF', '#BBA6FF'], route: null },
-      { icon: 'help-circle-outline',         label: 'Help & Support',    accent: ['#3DBE6E', '#7DDFA0'], route: null },
+      { icon: 'settings-outline',            label: 'Settings',          accent: ['#8B6EFF', '#BBA6FF'], route: '/(tabs)/settings'},
+      { icon: 'help-circle-outline',         label: 'Help & Support',    accent: ['#3DBE6E', '#7DDFA0'], route: '/(tabs)/help-support' },
     ],
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const router           = useRouter();
@@ -60,14 +62,12 @@ export default function ProfileScreen() {
   // ── Scroll-driven animation ────────────────────────────────────────────
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // Parallax: hero image drifts up at 0.45× scroll speed
   const heroTranslateY = scrollY.interpolate({
     inputRange:  [0, HERO_HEIGHT],
     outputRange: [0, -HERO_HEIGHT * 0.45],
     extrapolate: 'clamp',
   });
 
-  // Glow orbs at three different speeds for depth
   const orb1Y = scrollY.interpolate({ inputRange: [0, height], outputRange: [0, -70], extrapolate: 'clamp' });
   const orb2Y = scrollY.interpolate({ inputRange: [0, height], outputRange: [0, -40], extrapolate: 'clamp' });
   const orb3Y = scrollY.interpolate({ inputRange: [0, height], outputRange: [0, -25], extrapolate: 'clamp' });
@@ -84,7 +84,6 @@ export default function ProfileScreen() {
     extrapolate: 'clamp',
   });
 
-  // Avatar in hero: scale + fade out as user scrolls past it
   const avatarScale = scrollY.interpolate({
     inputRange:  [0, HERO_HEIGHT * 0.6],
     outputRange: [1, 0.7],
@@ -128,31 +127,24 @@ export default function ProfileScreen() {
     if (route) router.push(route);
   };
 
-  // ── Derived display values ─────────────────────────────────────────────
   const username   = user?.email?.split('@')[0] || 'Pet Lover';
   const emailFull  = user?.email || 'user@example.com';
-  // Simple initials from username
   const initials   = username.slice(0, 2).toUpperCase();
 
-  // ── JSX ───────────────────────────────────────────────────────────────
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* ══ FULL-SCREEN DEEP BACKGROUND ══════════════════════════════════ */}
       <LinearGradient
         colors={['#0D0B2A', '#170D3A', '#0A1628']}
         start={{ x: 0.15, y: 0 }}
         end={{ x: 0.85, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-
-      {/* ══ PARALLAX GLOW ORBS ═══════════════════════════════════════════ */}
       <Animated.View style={[styles.glowOrb, styles.orb1, { transform: [{ translateY: orb1Y }] }]} />
       <Animated.View style={[styles.glowOrb, styles.orb2, { transform: [{ translateY: orb2Y }] }]} />
       <Animated.View style={[styles.glowOrb, styles.orb3, { transform: [{ translateY: orb3Y }] }]} />
 
-      {/* ══ SCROLLABLE BODY ══════════════════════════════════════════════ */}
       <Animated.ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -162,24 +154,17 @@ export default function ProfileScreen() {
         )}
         scrollEventThrottle={16}
       >
-        {/* ── PARALLAX HERO SECTION ────────────────────────────────────
-            The hero background image parallaxes; the avatar + name content
-            fades out as the user scrolls. */}
         <View style={styles.heroContainer}>
-          {/* Parallaxing background image */}
           <Animated.Image
             source={{ uri: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800' }}
             style={[styles.heroBg, { transform: [{ translateY: heroTranslateY }] }]}
             resizeMode="cover"
           />
-
-          {/* Gradient overlay to blend into page background */}
           <LinearGradient
             colors={['rgba(13,11,42,0.25)', 'rgba(13,11,42,0.55)', '#0D0B2A']}
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Purple shimmer band */}
           <LinearGradient
             colors={['rgba(123,95,255,0.18)', 'transparent']}
             start={{ x: 0, y: 0 }}
@@ -187,7 +172,6 @@ export default function ProfileScreen() {
             style={StyleSheet.absoluteFill}
           />
 
-          {/* Avatar + username — fades as user scrolls */}
           <Animated.View
             style={[
               styles.heroContent,
@@ -197,7 +181,6 @@ export default function ProfileScreen() {
               },
             ]}
           >
-            {/* Avatar ring */}
             <Animated.View style={[styles.avatarRing, { transform: [{ scale: avatarScale }] }]}>
               <BlurView intensity={50} tint="dark" style={styles.avatarBlur}>
                 <LinearGradient
@@ -211,40 +194,20 @@ export default function ProfileScreen() {
             <Text style={styles.heroName}>{username}</Text>
             <Text style={styles.heroEmail}>{emailFull}</Text>
 
-            {/* Stat pills */}
-            {/* <View style={styles.statPills}>
-              {[
-                { label: 'Scans',  value: '—' },
-                { label: 'Breeds', value: '—' },
-                { label: 'Saved',  value: '—' },
-              ].map((pill, i) => (
-                <BlurView key={i} intensity={40} tint="dark" style={styles.pill}>
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.10)', 'rgba(255,255,255,0.03)']}
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <Text style={styles.pillValue}>{pill.value}</Text>
-                  <Text style={styles.pillLabel}>{pill.label}</Text>
-                </BlurView>
-              ))}
-            </View> */}
           </Animated.View>
         </View>
 
-        {/* ── MENU SECTIONS ─────────────────────────────────────────────── */}
         <View style={styles.menuWrapper}>
           {MENU_SECTIONS.map((section, si) => (
             <View key={si} style={styles.section}>
-              {/* Section heading */}
               <Text style={styles.sectionHeading}>{section.title}</Text>
 
-              {/* Glass card wrapping all items in a section */}
               <BlurView intensity={38} tint="dark" style={styles.sectionCard}>
                 <LinearGradient
                   colors={['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.03)']}
                   style={StyleSheet.absoluteFill}
                 />
-                {/* Top shimmer border */}
+
                 <View style={styles.cardTopBorder} />
 
                 {section.items.map((item, ii) => (
@@ -273,7 +236,6 @@ export default function ProfileScreen() {
                       </View>
                     </TouchableOpacity>
 
-                    {/* Divider — skip after last item */}
                     {ii < section.items.length - 1 && <View style={styles.divider} />}
                   </React.Fragment>
                 ))}
@@ -301,19 +263,14 @@ export default function ProfileScreen() {
         </View>
       </Animated.ScrollView>
 
-      {/* ══ FIXED GLASS HEADER ═══════════════════════════════════════════
-          Positioned absolutely above the ScrollView. Collapses on scroll. */}
       <Animated.View style={[styles.fixedHeader, { height: headerHeight }]} pointerEvents="box-none">
-        {/* Layer 1 — frosted glass base */}
         <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
 
-        {/* Layer 2 — dark overlay that deepens as user scrolls */}
         <Animated.View
           style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,8,36,1)', opacity: headerOverlayOpacity }]}
           pointerEvents="none"
         />
 
-        {/* Layer 3 — purple shimmer tint */}
         <LinearGradient
           colors={['rgba(123,95,255,0.38)', 'rgba(123,95,255,0.06)']}
           start={{ x: 0, y: 0 }}
@@ -322,14 +279,12 @@ export default function ProfileScreen() {
           pointerEvents="none"
         />
 
-        {/* Bottom glass border */}
         <View style={styles.headerBorder} pointerEvents="none" />
 
-        {/* Content */}
         <View style={[styles.headerInner, { paddingTop: STATUS_BAR_HEIGHT }]}>
           <Text style={styles.headerTitle}>Profile</Text>
-          {/* Settings shortcut */}
-          <TouchableOpacity style={styles.headerIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+
+          <TouchableOpacity style={styles.headerIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={() => router.push('/settings')}>
             <BlurView intensity={50} tint="dark" style={styles.headerIconBlur}>
               <Ionicons name="settings-outline" size={18} color="rgba(255,255,255,0.80)" />
             </BlurView>
@@ -340,12 +295,9 @@ export default function ProfileScreen() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
 
-  // ── Root ─────────────────────────────────────────────────────────────────
   root: {
     flex: 1,
     backgroundColor: '#0D0B2A',
@@ -354,7 +306,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── Glow orbs ─────────────────────────────────────────────────────────────
   glowOrb: {
     position:     'absolute',
     borderRadius: 999,
@@ -392,7 +343,7 @@ const styles = StyleSheet.create({
     top:      0,
   },
 
-  // Hero foreground content (avatar + name)
+
   heroContent: {
     alignItems:    'center',
     paddingBottom: 38,
@@ -482,7 +433,6 @@ const styles = StyleSheet.create({
     marginLeft:    4,
   },
 
-  // Glass card wrapping section items
   sectionCard: {
     borderRadius:  20,
     overflow:      'hidden',
@@ -536,7 +486,7 @@ const styles = StyleSheet.create({
     alignItems:     'center',
   },
 
-  // Row divider
+
   divider: {
     height:          1,
     marginHorizontal: 16,
@@ -547,7 +497,7 @@ const styles = StyleSheet.create({
   logoutBtn: {
     borderRadius:  20,
     overflow:      'hidden',
-    marginBottom:  20,
+    marginBottom:  45,
     borderWidth:   1,
     borderColor:   'rgba(255,107,78,0.30)',
     shadowColor:   '#FF6B4E',
@@ -577,7 +527,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // App version
   versionTag: {
     textAlign:     'center',
     fontSize:      12,

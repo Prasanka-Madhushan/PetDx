@@ -6,8 +6,8 @@ export const CustomButton = ({
   onPress,
   loading = false,
   disabled = false,
-  variant = 'primary', // primary, secondary, outline
-  size = 'large' // small, medium, large
+  variant = 'primary',
+  size = 'large'
 }) => {
   const getButtonStyle = () => {
     let style = [styles.button];

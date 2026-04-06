@@ -13,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
-// ─── Tab definitions — only the 4 visible tabs ────────────────────────────────
 const TAB_ITEMS = [
   {
     name:       'home',
@@ -49,9 +48,7 @@ const TAB_ITEMS = [
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Single animated tab button
-// ─────────────────────────────────────────────────────────────────────────────
 function TabButton({ item, isFocused, onPress }) {
   const scaleAnim = useRef(new Animated.Value(isFocused ? 1.1 : 0.9)).current;
   const pillAnim  = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
@@ -94,7 +91,7 @@ function TabButton({ item, isFocused, onPress }) {
       accessibilityLabel={item.label}
       accessibilityState={{ selected: isFocused }}
     >
-      {/* ── Active glow pill (behind the icon) ── */}
+      {/* ── Active glow pill ── */}
       <Animated.View
         style={[
           styles.activePill,
@@ -152,11 +149,8 @@ function TabButton({ item, isFocused, onPress }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Custom glass tab bar component
-// ─────────────────────────────────────────────────────────────────────────────
 function GlassTabBar({ state, navigation }) {
-  // Filter routes to only the 4 we want to show
   const visibleRoutes = state.routes.filter(r =>
     TAB_ITEMS.some(t => t.name === r.name)
   );
@@ -164,23 +158,17 @@ function GlassTabBar({ state, navigation }) {
   return (
     <View style={styles.tabBarOuter} pointerEvents="box-none">
 
-      {/* ── Android elevation shadow slab ── */}
       <View style={styles.androidShadowSlab} />
 
-      {/* ── Main glass pill ── */}
       <View style={styles.glassBar}>
-
-        {/* Layer 1 — BlurView frosted base */}
         <BlurView
           intensity={Platform.OS === 'android' ? 18 : 45}
           tint="dark"
           style={StyleSheet.absoluteFill}
         />
 
-        {/* Layer 2 — Dark fill (essential on Android where blur is weak) */}
         <View style={styles.darkBaseFill} pointerEvents="none" />
 
-        {/* Layer 3 — Subtle deep-navy → almost-black gradient top to bottom */}
         <LinearGradient
           colors={[
             'rgba(30,20,70,0.78)',
@@ -191,8 +179,6 @@ function GlassTabBar({ state, navigation }) {
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
-
-        {/* Layer 4 — Faint purple shimmer sweep (left → right) */}
         <LinearGradient
           colors={[
             'rgba(123,95,255,0.12)',
@@ -247,13 +233,11 @@ function GlassTabBar({ state, navigation }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // Layout export
-// ─────────────────────────────────────────────────────────────────────────────
 export default function TabsLayout() {
   return (
     <>
-      {/* Translucent status bar so pages bleed full-screen */}
       <StatusBar
         barStyle="light-content"
         translucent
@@ -261,11 +245,9 @@ export default function TabsLayout() {
       />
 
       <Tabs
-        // Fully replace the default tab bar
         tabBar={(props) => <GlassTabBar {...props} />}
         screenOptions={{
           headerShown: false,
-          // Belt-and-suspenders: hide any default bar remnant
           tabBarStyle: { display: 'none' },
         }}
       >
@@ -287,7 +269,6 @@ export default function TabsLayout() {
           options={{ title: 'Profile', headerShown: false }}
         />
 
-        {/* ══ Hidden tabs — no nav bar entry ══ */}
         <Tabs.Screen
           name="vet"
           options={{ headerShown: false, href: null }}
@@ -301,26 +282,21 @@ export default function TabsLayout() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
-
 const BAR_HEIGHT   = 66;
 const RADIUS       = 28;
 
 const styles = StyleSheet.create({
 
-  // ── Outer container — absolute, full-width, stacks above content ──────────
   tabBarOuter: {
     position:  'absolute',
     bottom:    0,
     left:      0,
     right:     0,
     zIndex:    999,
-    elevation: 30,          
+    elevation: 30,
+     marginBottom: Platform.OS === 'ios' ? 40 : 36,          
   },
 
-  // ── Android elevation shadow slab ────────────────────────────────────────
 
   androidShadowSlab: {
     position:              'absolute',
@@ -334,32 +310,27 @@ const styles = StyleSheet.create({
     elevation:             18,
   },
 
-  // ── Main glass container ──────────────────────────────────────────────────
   glassBar: {
     width:                 '100%',
     height:                BAR_HEIGHT,
     borderTopLeftRadius:   RADIUS,
     borderTopRightRadius:  RADIUS,
     overflow:              'hidden',
-    // Fallback solid bg for very old Android where BlurView renders nothing
     backgroundColor:       'rgba(10,8,28,0.90)',
     elevation:             20,
   },
 
-  // Essential dark fill on Android (BlurView renders lighter than on iOS)
   darkBaseFill: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(8,6,24,0.65)',
   },
 
-  // ── Border accents ────────────────────────────────────────────────────────
   topShimmerBorder: {
     position:        'absolute',
     top:  0,
     left: 0,
     right: 0,
     height:          1.5,
-    // White-to-transparent left-to-right shimmer
     backgroundColor: 'rgba(255,255,255,0.16)',
     zIndex:          5,
   },
@@ -378,7 +349,6 @@ const styles = StyleSheet.create({
     zIndex:          5,
   },
 
-  // ── Tab row ───────────────────────────────────────────────────────────────
   tabRow: {
     flex:              1,
     flexDirection:     'row',
@@ -388,7 +358,6 @@ const styles = StyleSheet.create({
     zIndex:            6,
   },
 
-  // ── Individual tab button ─────────────────────────────────────────────────
   tabButton: {
     flex:            1,
     alignItems:      'center',
@@ -396,7 +365,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
 
-  // ── Active glow pill ──────────────────────────────────────────────────────
+
   activePill: {
     position:        'absolute',
     top:             5,
@@ -404,14 +373,13 @@ const styles = StyleSheet.create({
     height:          50,
     borderRadius:    18,
     overflow:        'hidden',
-    // Android elevation glow under the pill
     elevation:       8,
   },
   activePillGradient: {
     flex:    1,
-    opacity: 0.30,       // semi-transparent so the icon sits on top clearly
+    opacity: 0.30,  
   },
-  // Thin glowing ring around the pill
+
   pillGlowRing: {
     position:     'absolute',
     top:          0, left: 0, right: 0, bottom: 0,
@@ -419,7 +387,6 @@ const styles = StyleSheet.create({
     borderWidth:  1.5,
   },
 
-  // ── Label ─────────────────────────────────────────────────────────────────
   tabLabel: {
     fontSize:      10,
     marginTop:     3,

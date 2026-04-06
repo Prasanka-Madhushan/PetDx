@@ -11,6 +11,7 @@ import {
   Dimensions,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllScans, deleteScan } from '../../utils/database';
@@ -18,14 +19,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const { width, height } = Dimensions.get('window');
 const STATUS_BAR_HEIGHT  = Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 50;
 const HEADER_EXPANDED_H  = 90 + STATUS_BAR_HEIGHT;
 const HEADER_COLLAPSED_H = 52 + STATUS_BAR_HEIGHT;
 const COLLAPSE_SCROLL    = 80;
 
-// Accent colours cycling per card index
 const CARD_ACCENTS = [
   ['#7B5FFF', '#A98BFF'],
   ['#FF6B4E', '#FF9F7B'],
@@ -34,30 +33,27 @@ const CARD_ACCENTS = [
   ['#00C2FF', '#60D6FF'],
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Animated scan card
-// ─────────────────────────────────────────────────────────────────────────────
+// Scan Card
 function ScanCard({ item, index, onDelete }) {
-  const accent      = CARD_ACCENTS[index % CARD_ACCENTS.length];
-  const mountAnim   = useRef(new Animated.Value(0)).current;
-  const slideAnim   = useRef(new Animated.Value(28)).current;
-  const deleteScale = useRef(new Animated.Value(1)).current;
+  const accent        = CARD_ACCENTS[index % CARD_ACCENTS.length];
+  const mountAnim     = useRef(new Animated.Value(0)).current;
+  const slideAnim     = useRef(new Animated.Value(28)).current;
+  const deleteScale   = useRef(new Animated.Value(1)).current;
   const deleteOpacity = useRef(new Animated.Value(1)).current;
 
-  // Staggered entry
   useEffect(() => {
     Animated.parallel([
       Animated.timing(mountAnim, {
-        toValue:   1,
-        duration:  380,
-        delay:     index * 65,
+        toValue: 1,
+        duration: 380,
+        delay: index * 65,
         useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {
-        toValue:   0,
-        friction:  7,
-        tension:   80,
-        delay:     index * 65,
+        toValue: 0,
+        friction: 7,
+        tension: 80,
+        delay: index * 65,
         useNativeDriver: true,
       }),
     ]).start();
@@ -73,15 +69,14 @@ function ScanCard({ item, index, onDelete }) {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            // Animate out before removing from list
             Animated.parallel([
               Animated.timing(deleteScale, {
-                toValue:  0.88,
+                toValue: 0.88,
                 duration: 200,
                 useNativeDriver: true,
               }),
               Animated.timing(deleteOpacity, {
-                toValue:  0,
+                toValue: 0,
                 duration: 220,
                 useNativeDriver: true,
               }),
@@ -93,37 +88,41 @@ function ScanCard({ item, index, onDelete }) {
   };
 
   const formattedDate = new Date(item.timestamp).toLocaleDateString('en-US', {
-    day:   'numeric',
+    day: 'numeric',
     month: 'short',
-    year:  'numeric',
+    year: 'numeric',
   });
+
+  // Determine scan type from data
+  const isBreedOnly   = item.disease === 'N/A';
+  const isDiseaseOnly = item.breed === 'N/A';
+  const scanTypeLabel = isBreedOnly ? 'Breed' : isDiseaseOnly ? 'Disease' : 'Both';
+  const scanTypeIcon  = isBreedOnly ? 'paw' : isDiseaseOnly ? 'medical' : 'scan';
+  const scanTypeColor = isBreedOnly ? '#A98BFF' : isDiseaseOnly ? '#FF9F7B' : '#7DDFA0';
 
   return (
     <Animated.View
       style={[
         styles.cardWrapper,
         {
-          opacity:   Animated.multiply(mountAnim, deleteOpacity),
+          opacity: Animated.multiply(mountAnim, deleteOpacity),
           transform: [
             { translateY: slideAnim },
-            { scale:      deleteScale },
+            { scale: deleteScale },
           ],
         },
       ]}
     >
-      {/* Android elevation glow slab */}
       <View style={[styles.cardGlowSlab, { backgroundColor: accent[0] + '30' }]} />
 
       <BlurView intensity={22} tint="dark" style={styles.card}>
-        {/* Glass layers */}
         <LinearGradient
           colors={['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.02)']}
           style={StyleSheet.absoluteFill}
         />
-        {/* Top shimmer border */}
         <View style={styles.cardTopBorder} />
 
-        {/* Thumbnail with accent border ring */}
+        {/* Thumbnail */}
         <View style={styles.thumbnailWrapper}>
           <LinearGradient
             colors={accent}
@@ -131,28 +130,56 @@ function ScanCard({ item, index, onDelete }) {
             end={{ x: 1, y: 1 }}
             style={styles.thumbnailRing}
           />
-          <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />
+          {item.imageUri ? (
+            <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />
+          ) : (
+            <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
+              <Ionicons name="image-outline" size={22} color="rgba(255,255,255,0.3)" />
+            </View>
+          )}
         </View>
 
         {/* Info */}
         <View style={styles.infoBlock}>
-          <Text style={styles.breed} numberOfLines={1}>{item.breed}</Text>
-          <View style={styles.diseasePill}>
-            <LinearGradient
-              colors={[accent[0] + '30', accent[0] + '10']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={styles.diseasePillBg}
-            />
-            <View style={[styles.diseaseDot, { backgroundColor: accent[0] }]} />
-            <Text style={[styles.disease, { color: accent[0] }]} numberOfLines={1}>
-              {item.disease}
+
+          {/* Scan type badge */}
+          <View style={styles.scanTypeBadge}>
+            <Ionicons name={scanTypeIcon} size={11} color={scanTypeColor} />
+            <Text style={[styles.scanTypeText, { color: scanTypeColor }]}>
+              {scanTypeLabel} Scan
             </Text>
           </View>
+
+          {/* Breed row */}
+          {!isDiseaseOnly && (
+            <View style={styles.resultRow}>
+              <Ionicons name="paw-outline" size={12} color="rgba(169,139,255,0.7)" />
+              <Text style={styles.resultLabel} numberOfLines={1}>
+                {item.breed}
+              </Text>
+              <Text style={styles.resultConf}>
+                {(item.breedConfidence * 100).toFixed(0)}%
+              </Text>
+            </View>
+          )}
+
+          {/* Disease row */}
+          {!isBreedOnly && (
+            <View style={styles.resultRow}>
+              <Ionicons name="medical-outline" size={12} color="rgba(255,159,123,0.7)" />
+              <Text style={styles.resultLabel} numberOfLines={1}>
+                {item.disease}
+              </Text>
+              <Text style={styles.resultConf}>
+                {(item.diseaseConfidence * 100).toFixed(0)}%
+              </Text>
+            </View>
+          )}
+
           <Text style={styles.date}>{formattedDate}</Text>
         </View>
 
-        {/* Delete button */}
+        {/* Delete */}
         <TouchableOpacity
           style={styles.deleteBtn}
           onPress={handleDeletePress}
@@ -172,9 +199,7 @@ function ScanCard({ item, index, onDelete }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Empty state with breathing animation
-// ─────────────────────────────────────────────────────────────────────────────
+// Empty State
 function EmptyState({ mountAnim }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -191,17 +216,14 @@ function EmptyState({ mountAnim }) {
 
   return (
     <Animated.View style={[styles.emptyContainer, { opacity: mountAnim }]}>
-      {/* Breathing glass orb */}
       <Animated.View style={[styles.emptyOrb, { transform: [{ scale: pulseAnim }] }]}>
         <LinearGradient
           colors={['rgba(123,95,255,0.22)', 'rgba(123,95,255,0.06)']}
           style={StyleSheet.absoluteFill}
         />
-        {/* Outer ring */}
         <View style={styles.emptyOrbRing} />
         <Ionicons name="time-outline" size={48} color="rgba(169,139,255,0.65)" />
       </Animated.View>
-
       <Text style={styles.emptyTitle}>No scans yet</Text>
       <Text style={styles.emptySubtitle}>
         Your scan history will appear here once you start scanning your pet
@@ -210,39 +232,45 @@ function EmptyState({ mountAnim }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main screen
-// ─────────────────────────────────────────────────────────────────────────────
-export default function HistoryScreen() {
-  const [scans, setScans] = useState([]);
+// Loading State
+function LoadingState() {
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#A98BFF" />
+      <Text style={styles.loadingText}>Loading scans...</Text>
+    </View>
+  );
+}
 
-  // ── Scroll + mount animations ────────────────────────────────────────
+// Main Screen
+export default function HistoryScreen() {
+  const [scans, setScans]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+
   const scrollY   = useRef(new Animated.Value(0)).current;
   const mountAnim = useRef(new Animated.Value(0)).current;
 
-  // ── Orb parallax ────────────────────────────────────────────────────
   const orb1Y = scrollY.interpolate({ inputRange: [0, height], outputRange: [0, -65], extrapolate: 'clamp' });
   const orb2Y = scrollY.interpolate({ inputRange: [0, height], outputRange: [0, -38], extrapolate: 'clamp' });
   const orb3Y = scrollY.interpolate({ inputRange: [0, height], outputRange: [0, -22], extrapolate: 'clamp' });
 
-  // ── Fixed header collapse ────────────────────────────────────────────
   const headerHeight = scrollY.interpolate({
-    inputRange:  [0, COLLAPSE_SCROLL],
+    inputRange: [0, COLLAPSE_SCROLL],
     outputRange: [HEADER_EXPANDED_H, HEADER_COLLAPSED_H],
     extrapolate: 'clamp',
   });
   const headerOverlayOpacity = scrollY.interpolate({
-    inputRange:  [0, COLLAPSE_SCROLL],
+    inputRange: [0, COLLAPSE_SCROLL],
     outputRange: [0, 0.72],
     extrapolate: 'clamp',
   });
   const titleFontSize = scrollY.interpolate({
-    inputRange:  [0, COLLAPSE_SCROLL],
+    inputRange: [0, COLLAPSE_SCROLL],
     outputRange: [22, 17],
     extrapolate: 'clamp',
   });
   const subtitleOpacity = scrollY.interpolate({
-    inputRange:  [0, COLLAPSE_SCROLL * 0.6],
+    inputRange: [0, COLLAPSE_SCROLL * 0.6],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
@@ -251,7 +279,6 @@ export default function HistoryScreen() {
     Animated.timing(mountAnim, { toValue: 1, duration: 480, useNativeDriver: true }).start();
   }, []);
 
-  // ── Data functions (original logic preserved) ────────────────────────
   useFocusEffect(
     useCallback(() => {
       loadScans();
@@ -259,21 +286,25 @@ export default function HistoryScreen() {
   );
 
   const loadScans = async () => {
+    setLoading(true);
     const data = await getAllScans();
     setScans(data);
+    setLoading(false);
   };
 
   const handleDelete = async (id) => {
-    await deleteScan(id);
-    loadScans();
+    const success = await deleteScan(id);
+    if (success) {
+      setScans((prev) => prev.filter((s) => s.id !== id));
+    } else {
+      Alert.alert('Error', 'Failed to delete scan. Please try again.');
+    }
   };
 
-  // ─── Render ────────────────────────────────────────────────────────
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* ══ DEEP BACKGROUND ══════════════════════════════════════════════ */}
       <LinearGradient
         colors={['#0A0820', '#150D38', '#0A1628']}
         start={{ x: 0.15, y: 0 }}
@@ -281,13 +312,14 @@ export default function HistoryScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* ══ PARALLAX GLOW ORBS ═══════════════════════════════════════════ */}
       <Animated.View style={[styles.glowOrb, styles.orb1, { transform: [{ translateY: orb1Y }] }]} />
       <Animated.View style={[styles.glowOrb, styles.orb2, { transform: [{ translateY: orb2Y }] }]} />
       <Animated.View style={[styles.glowOrb, styles.orb3, { transform: [{ translateY: orb3Y }] }]} />
 
-      {/* ══ SCROLL CONTENT ═══════════════════════════════════════════════ */}
-      {scans.length === 0 ? (
+      {/* Content */}
+      {loading ? (
+        <LoadingState />
+      ) : scans.length === 0 ? (
         <EmptyState mountAnim={mountAnim} />
       ) : (
         <Animated.FlatList
@@ -306,7 +338,6 @@ export default function HistoryScreen() {
             { useNativeDriver: false }
           )}
           scrollEventThrottle={16}
-          // Count badge in list header
           ListHeaderComponent={
             <Animated.View style={[styles.countBadge, { opacity: mountAnim }]}>
               <BlurView intensity={18} tint="dark" style={styles.countBadgeInner}>
@@ -325,18 +356,13 @@ export default function HistoryScreen() {
         />
       )}
 
-      {/* ══ FIXED GLASS HEADER ═══════════════════════════════════════════ */}
+      {/* Fixed Glass Header */}
       <Animated.View style={[styles.fixedHeader, { height: headerHeight }]} pointerEvents="box-none">
-        {/* Layer 1 — BlurView frosted base */}
         <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
-
-        {/* Layer 2 — Dark solid overlay, deepens on scroll */}
         <Animated.View
           style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,8,32,1)', opacity: headerOverlayOpacity }]}
           pointerEvents="none"
         />
-
-        {/* Layer 3 — Purple shimmer tint */}
         <LinearGradient
           colors={['rgba(123,95,255,0.35)', 'rgba(123,95,255,0.06)']}
           start={{ x: 0, y: 0 }}
@@ -344,24 +370,17 @@ export default function HistoryScreen() {
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
-
-        {/* Bottom glass border */}
         <View style={styles.headerBorder} pointerEvents="none" />
 
-        {/* Content */}
         <View style={[styles.headerInner, { paddingTop: STATUS_BAR_HEIGHT }]}>
           <View style={styles.headerLeft}>
-            {/* Animated title size */}
             <Animated.Text style={[styles.headerTitle, { fontSize: titleFontSize }]}>
               Scan History
             </Animated.Text>
-            {/* Subtitle fades on scroll */}
             <Animated.Text style={[styles.headerSubtitle, { opacity: subtitleOpacity }]}>
               Your pet diagnosis records
             </Animated.Text>
           </View>
-
-          {/* History icon badge */}
           <View style={styles.headerIconWrap}>
             <BlurView intensity={20} tint="dark" style={styles.headerIconBlur}>
               <LinearGradient
@@ -377,297 +396,292 @@ export default function HistoryScreen() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-
-  // ── Root ──────────────────────────────────────────────────────────────────
   root: {
-    flex:            1,
+    flex: 1,
     backgroundColor: '#0A0820',
   },
-
-  // ── Glow orbs ─────────────────────────────────────────────────────────────
   glowOrb: {
-    position:     'absolute',
+    position: 'absolute',
     borderRadius: 999,
-    opacity:      0.28,
+    opacity: 0.28,
   },
   orb1: {
-    width:           320,
-    height:          320,
+    width: 320,
+    height: 320,
     backgroundColor: '#7B5FFF',
-    top:             -110,
-    left:            -90,
-    elevation:       0,
+    top: -110,
+    left: -90,
+    elevation: 0,
   },
   orb2: {
-    width:           250,
-    height:          250,
+    width: 250,
+    height: 250,
     backgroundColor: '#FF6B4E',
-    top:             height * 0.42,
-    right:           -80,
-    elevation:       0,
+    top: height * 0.42,
+    right: -80,
+    elevation: 0,
   },
   orb3: {
-    width:           200,
-    height:          200,
+    width: 200,
+    height: 200,
     backgroundColor: '#00C2FF',
-    bottom:          100,
-    left:            -55,
-    elevation:       0,
+    bottom: 100,
+    left: -55,
+    elevation: 0,
   },
-
-  // ── FlatList content ──────────────────────────────────────────────────────
   listContent: {
     paddingHorizontal: 18,
-    paddingBottom:     100,   // clear the bottom tab bar
+    paddingBottom: 100,
   },
-
-  // ── Count badge (list header) ─────────────────────────────────────────────
   countBadge: {
-    marginBottom:  16,
-    borderRadius:  12,
-    overflow:      'hidden',
-    borderWidth:   1,
-    borderColor:   'rgba(123,95,255,0.22)',
-    alignSelf:     'flex-start',
-    elevation:     4,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(123,95,255,0.22)',
+    alignSelf: 'flex-start',
+    elevation: 4,
   },
   countBadgeInner: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    paddingVertical:   8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
     paddingHorizontal: 14,
-    overflow:          'hidden',
-    backgroundColor:   'rgba(10,8,28,0.70)',  // Android fallback
+    overflow: 'hidden',
+    backgroundColor: 'rgba(10,8,28,0.70)',
   },
   countBadgeBorder: {
-    position:        'absolute',
+    position: 'absolute',
     top: 0, left: 0, right: 0,
-    height:          1,
+    height: 1,
     backgroundColor: 'rgba(169,139,255,0.30)',
   },
   countBadgeText: {
-    fontSize:      12,
-    fontWeight:    '600',
-    color:         'rgba(169,139,255,0.85)',
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(169,139,255,0.85)',
     letterSpacing: 0.3,
   },
 
-  // ── Scan card ─────────────────────────────────────────────────────────────
+  // Card
   cardWrapper: {
     marginBottom: 14,
   },
-  // Android elevation glow slab sitting behind the card
   cardGlowSlab: {
-    position:     'absolute',
-    top:           4,
-    left:          8,
-    right:         8,
-    bottom:       -3,
+    position: 'absolute',
+    top: 4, left: 8, right: 8, bottom: -3,
     borderRadius: 20,
-    elevation:    8,
+    elevation: 8,
   },
   card: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    borderRadius:   20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    overflow:       'hidden',
-    borderWidth:    1,
-    borderColor:    'rgba(255,255,255,0.10)',
-    elevation:      6,
-    backgroundColor: 'rgba(10,8,28,0.78)',   // Android fallback
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    elevation: 6,
+    backgroundColor: 'rgba(10,8,28,0.78)',
   },
   cardTopBorder: {
-    position:        'absolute',
+    position: 'absolute',
     top: 0, left: 0, right: 0,
-    height:          1,
+    height: 1,
     backgroundColor: 'rgba(255,255,255,0.16)',
-    zIndex:          2,
+    zIndex: 2,
   },
 
-  // ── Thumbnail ─────────────────────────────────────────────────────────────
+  // Thumbnail
   thumbnailWrapper: {
-    width:        68,
-    height:       68,
+    width: 68,
+    height: 68,
     borderRadius: 16,
-    marginRight:  14,
-    padding:      2,
+    marginRight: 14,
+    padding: 2,
   },
-  // Gradient ring around thumbnail
   thumbnailRing: {
-    position:     'absolute',
-    top:           0, left: 0, right: 0, bottom: 0,
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
     borderRadius: 16,
-    opacity:      0.70,
+    opacity: 0.70,
   },
   thumbnail: {
-    width:        '100%',
-    height:       '100%',
+    width: '100%',
+    height: '100%',
     borderRadius: 14,
-    resizeMode:   'cover',
-    borderWidth:  1.5,
-    borderColor:  'rgba(0,0,0,0.15)',
+    resizeMode: 'cover',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,0,0,0.15)',
+  },
+  thumbnailPlaceholder: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
-  // ── Info block ────────────────────────────────────────────────────────────
+  // Info
   infoBlock: {
-    flex:    1,
-    gap:     4,
+    flex: 1,
+    gap: 4,
   },
-  breed: {
-    fontSize:      15,
-    fontWeight:    '700',
-    color:         '#FFFFFF',
+  scanTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  scanTypeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  resultLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
     letterSpacing: 0.2,
   },
-  // Disease shown as a small coloured pill
-  diseasePill: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    borderRadius:   8,
-    overflow:       'hidden',
-    alignSelf:      'flex-start',
-    paddingVertical:   3,
-    paddingHorizontal: 8,
-    borderWidth:    1,
-    borderColor:    'rgba(255,255,255,0.08)',
-    maxWidth:       '100%',
-  },
-  diseasePillBg: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 8,
-  },
-  diseaseDot: {
-    width:        6,
-    height:       6,
-    borderRadius: 3,
-    marginRight:  5,
-  },
-  disease: {
-    fontSize:      12,
-    fontWeight:    '600',
-    letterSpacing: 0.2,
+  resultConf: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.45)',
+    fontWeight: '500',
   },
   date: {
-    fontSize:  11,
-    color:     'rgba(255,255,255,0.38)',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.38)',
     marginTop: 1,
     letterSpacing: 0.15,
   },
 
-  // ── Delete button ─────────────────────────────────────────────────────────
+  // Delete
   deleteBtn: {
-    borderRadius:  12,
-    overflow:      'hidden',
-    marginLeft:    10,
-    borderWidth:   1,
-    borderColor:   'rgba(255,107,78,0.25)',
-    elevation:     3,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginLeft: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,78,0.25)',
+    elevation: 3,
   },
   deleteBtnInner: {
-    width:          38,
-    height:         38,
+    width: 38,
+    height: 38,
     justifyContent: 'center',
-    alignItems:     'center',
-    overflow:       'hidden',
-    backgroundColor: 'rgba(10,8,28,0.70)',  // Android fallback
+    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(10,8,28,0.70)',
   },
 
-  // ── Empty state ───────────────────────────────────────────────────────────
+  // Empty state
   emptyContainer: {
-    flex:           1,
+    flex: 1,
     justifyContent: 'center',
-    alignItems:     'center',
+    alignItems: 'center',
     paddingHorizontal: 40,
   },
   emptyOrb: {
-    width:          120,
-    height:         120,
-    borderRadius:   36,
+    width: 120,
+    height: 120,
+    borderRadius: 36,
     justifyContent: 'center',
-    alignItems:     'center',
-    overflow:       'hidden',
-    marginBottom:   24,
-    elevation:      8,
+    alignItems: 'center',
+    overflow: 'hidden',
+    marginBottom: 24,
+    elevation: 8,
   },
   emptyOrbRing: {
-    position:     'absolute',
-    top:           0, left: 0, right: 0, bottom: 0,
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
     borderRadius: 36,
-    borderWidth:  1.5,
-    borderColor:  'rgba(169,139,255,0.30)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(169,139,255,0.30)',
   },
   emptyTitle: {
-    fontSize:      22,
-    fontWeight:    '700',
-    color:         '#FFFFFF',
-    marginBottom:  8,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
     letterSpacing: 0.3,
   },
   emptySubtitle: {
-    fontSize:  14,
-    color:     'rgba(255,255,255,0.38)',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.38)',
     textAlign: 'center',
     lineHeight: 21,
     letterSpacing: 0.2,
   },
 
-  // ── Fixed glass header ────────────────────────────────────────────────────
+  // Loading state
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 14,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: 'rgba(169,139,255,0.7)',
+    letterSpacing: 0.3,
+  },
+
+  // Fixed header
   fixedHeader: {
-    position:  'absolute',
-    top:       0,
-    left:      0,
-    right:     0,
-    zIndex:    100,
-    overflow:  'hidden',
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    zIndex: 100,
+    overflow: 'hidden',
     elevation: 20,
   },
   headerBorder: {
-    position:        'absolute',
+    position: 'absolute',
     bottom: 0, left: 0, right: 0,
-    height:          1,
+    height: 1,
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
   headerInner: {
-    flex:              1,
-    flexDirection:     'row',
-    alignItems:        'flex-end',
-    justifyContent:    'space-between',
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
     paddingHorizontal: 22,
-    paddingBottom:     14,
+    paddingBottom: 14,
   },
   headerLeft: {
     flex: 1,
   },
   headerTitle: {
-    fontWeight:    '800',
-    color:         '#FFFFFF',
+    fontWeight: '800',
+    color: '#FFFFFF',
     letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize:  12,
-    color:     'rgba(255,255,255,0.48)',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.48)',
     marginTop: 3,
     letterSpacing: 0.2,
   },
   headerIconWrap: {
-    borderRadius:  14,
-    overflow:      'hidden',
-    borderWidth:   1,
-    borderColor:   'rgba(123,95,255,0.28)',
-    elevation:     4,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(123,95,255,0.28)',
+    elevation: 4,
   },
   headerIconBlur: {
-    width:          44,
-    height:         44,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
-    alignItems:     'center',
-    overflow:       'hidden',
-    backgroundColor: 'rgba(10,8,28,0.70)',  // Android fallback
+    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(10,8,28,0.70)',
   },
 });
