@@ -44,7 +44,7 @@
 | UI Library | React Native Paper |
 | Navigation | React Navigation |
 | Backend | Flask (Python) |
-| Database | MySQL (structured data) + Firebase (auth/cloud) |
+| Database | MongoDB Compass + Firebase (auth/cloud) |
 | ML Framework | TensorFlow / Keras → TFLite |
 | APIs | Google Places API, Google Gemini API |
 | Version Control | GitHub |
