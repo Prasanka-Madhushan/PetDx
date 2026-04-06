@@ -97,8 +97,8 @@ Contributions are welcome! Please open an issue or submit a pull request.
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 📧 Contact
-Your Name – your.email@example.com
-GitHub: @yourusername
+- Your Name – prasankamadushan0@gmail.com
+- GitHub - @Prasanka-Madhushan
 
 ## 🙏 Acknowledgements
 - **Kaggle for datasets**
